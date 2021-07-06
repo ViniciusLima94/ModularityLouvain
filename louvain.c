@@ -304,6 +304,7 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
     float *n_i  = range(n_nodes);
     // 
     int n0      = n_nodes;
+     printf("%f ", sum(A,n_nodes,n_nodes));
 
     while(1) {
         if(h>300) { printf("Entered an Infite Loop (E) - Aborted"); break; }
@@ -372,14 +373,13 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         n_nodes  = max(m,n_nodes);
         // New weighted matrix
         float **A1 = array2D(n_nodes,n_nodes);
+        float wp = 0;
         for(int i=0;i<n_nodes;i++) {
             for(int j=i;j<n_nodes;j++) {
-                float wp = 0;
                 // Pool weights of nodes in same module
                 for(int r=0;r<n_nodes;r++) { if(m[r]==i && m[r]==j){ wp+=A[i][j]; } }
                 A1[i][j] = wp;
                 A1[j][i] = wp;
-                printf("%f ", wp);
             }
         }
         copy2D(A,A1,n_nodes,n_nodes);
