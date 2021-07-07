@@ -214,19 +214,20 @@ float trace(float (**a), int n_rows) {
     return _trace;
 }
 
-float *where(float *a, int n, float val) {
-    int count = 0;
-    float *indexes = array(1);
-    for(int i=0; i<n; i++) {
-        if(a[i]==val) {
-            if(count==0) { indexes[0]=i; count++;}
-            else { float *aux=append(indexes,n,i); indexes=aux;count++; }
-        }
-    }
-    return indexes;
-}
+/* float *where(float *a, int n, float val) { */
+/*     int count = 0; */
+/*     float *indexes = array(1); */
+/*     for(int i=0; i<n; i++) { */
+/*         if(a[i]==val) { */
+/*             if(count==0) { indexes[0]=i; count++;} */
+/*             else { float *aux=append(indexes,n,i); indexes=aux;count++; } */
+/*         } */
+/*     } */
+/*     return indexes; */
+/* } */
 
-float *permutation(float *a, int n) {
+float *permutation(float *a, int n, int seed) {
+    srand(seed);
     // Allocate and initialize permutated array
     float *perm_array = array(n);
     for(int i=0; i<n; i++) {
@@ -289,6 +290,30 @@ float **multiply(float (**a) , float (**b), int N) {
     return res;
 }
 
+float *where(float *a, int n, int val) {
+    float *indexes = array(n);
+    for(int i=0; i<n; i++) {
+        if(a[i]==val) {
+            indexes[i]=1;
+        }
+    }
+    return indexes;
+}
+
+float compute_wp(float (**A), float (*m), int n, float idx_1, float idx_2) {
+    float *i_i = where(m,n,idx_1);
+    float *i_j = where(m,n,idx_2);
+    float wp=0;
+    for(int i=0;i<n;i++) {
+        for(int j=0;j<n;j++) {
+            if((int)i_i[i]==1 && (int)i_j[j]==1) { 
+                wp+=A[i][j]; 
+            }
+        }
+    }
+    return wp;
+}
+
 float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
     // Defining random seed
     srand(seed);
@@ -304,43 +329,48 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
     float *n_i  = range(n_nodes);
     // 
     int n0      = n_nodes;
-     printf("%f ", sum(A,n_nodes,n_nodes));
+    /* printf("%f ", sum(A,n_nodes,n_nodes)); */
+
+    float *k,*Km,*m,*dQ_1,*dQ_2,*dQ,*n_ip,*ci_old;
+    float **Knm,**A1,**aux;
+    float max_dq,wp,q_old;
+    int   flag,it,ii,ma,j;
 
     while(1) {
         if(h>300) { printf("Entered an Infite Loop (E) - Aborted"); break; }
         // Nodes' degree
-        float *k    = sum_alog_axis(A,n_nodes,n_nodes,0);
+        k    = sum_alog_axis(A,n_nodes,n_nodes,0);
         // Copying values
-        float *Km   = array(n_nodes); copy(Km,k,n_nodes);
-        float **Knm = array2D(n_nodes, n_nodes); copy2D(Knm,A,n_nodes,n_nodes);
+        Km   = array(n_nodes); copy(Km,k,n_nodes);
+        Knm  = array2D(n_nodes, n_nodes); copy2D(Knm,A,n_nodes,n_nodes);
         // Initial module assignement
-        float *m    = range(n_nodes);
+        m    = range(n_nodes);
 
         // Flag for within hierarchy search
-        int flag = 1;
-        int it   = 0;
+        flag = 1;
+        it   = 0;
         while(flag) {
             it++;
             if(it>1000) { printf("Entered an Infite Loop (F) - Aborted!"); break; }
             flag = 0;
             // Loop over nodes in random order
-            float *n_ip = permutation(n_i, n_nodes);
+            n_ip = permutation(n_i,n_nodes,seed);
             for(int i=0; i<n_nodes;i++) {
-                int ii      = (int)n_ip[i];
-                int ma      = (int)m[ii];
+                ii      = (int)n_ip[i];
+                ma      = (int)m[ii];
                 // Algorithm condition
-                float *dQ_1 = add_to_array(get_row(Knm,ii,n_nodes), n_nodes, -Knm[ii][ma]+A[ii][ii]);
-                float *dQ_2 = const_to_array(add_to_array(Km,n_nodes,-Km[ma]+k[ii]),n_nodes,-gamma*k[ii]/w_e);
-                float *dQ   = add_array(dQ_1,dQ_2,n_nodes);
-                dQ[ma]      = 0;
+                dQ_1 = add_to_array(get_row(Knm,ii,n_nodes), n_nodes, -Knm[ii][ma]+A[ii][ii]);
+                dQ_2 = const_to_array(add_to_array(Km,n_nodes,-Km[ma]+k[ii]),n_nodes,-gamma*k[ii]/w_e);
+                dQ   = add_array(dQ_1,dQ_2,n_nodes);
+                dQ[ma] = 0;
 
                 // Finding maximal modularity increae
-                float max_dq = max(dQ,n_nodes);
+                max_dq = max(dQ,n_nodes);
                 /* printf("%f ", max_dq); */
                 // If maximal increase is positive
                 if(max_dq>1e-10) {
                     // Take only one value
-                    int j = argmax(dQ,n_nodes);
+                    j = argmax(dQ,n_nodes);
                     // Change modules degrees
                     for(int r=0;r<n_nodes;r++) {
                         Knm[r][j]  += A[r][ii];
@@ -360,7 +390,7 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         m = unique_reverse(m,n_nodes);
         /* m = add_to_array(m,n_nodes,1); */
         h++;
-        float *ci_old = array(n_nodes); copy(ci_old,ci,n_nodes);
+        ci_old = array(n_nodes); copy(ci_old,ci,n_nodes);
         ci            = array(n0);
         for(int i=0;i<n_nodes;i++) {
             for(int j=0;j<n_nodes;j++) {
@@ -372,12 +402,12 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         // New number of modules
         n_nodes  = max(m,n_nodes);
         // New weighted matrix
-        float **A1 = array2D(n_nodes,n_nodes);
-        float wp = 0;
+        A1 = array2D(n_nodes,n_nodes);
         for(int i=0;i<n_nodes;i++) {
             for(int j=i;j<n_nodes;j++) {
                 // Pool weights of nodes in same module
-                for(int r=0;r<n_nodes;r++) { if(m[r]==i && m[r]==j){ wp+=A[i][j]; } }
+                /* for(int r=0;r<n_nodes;r++) { if(m[r]==i && m[r]==j){ wp+=A[i][j]; } } */
+                wp = compute_wp(A,m,n_nodes,i,j);
                 A1[i][j] = wp;
                 A1[j][i] = wp;
             }
@@ -385,8 +415,8 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         copy2D(A,A1,n_nodes,n_nodes);
 
         // Compute modularity
-        float q_old   = q;
-        float **aux = const_to_array2D(A,n_nodes,1/w_e);
+        q_old   = q;
+        aux = const_to_array2D(A,n_nodes,1/w_e);
         q = trace(A,n_nodes)/w_e - gamma*sum(multiply(aux,aux,n_nodes),n_nodes,n_nodes);
         /* printf("%f ", q); */
         free(aux);
@@ -397,15 +427,15 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
     return q;
 }
 
-float readmatrix(int rows, int cols, float (**a), const char* filename) {
+int readmatrix(int rows, int cols, float (**a), const char* filename) {
 
     FILE *pf;
     pf = fopen (filename, "-r");
     if (pf == NULL)
         return 0;
 
-    for(int i = 0; i < rows; i++) {
-        for(int j = 0; j < cols; j++)
+    for(int i = 0; i < rows; ++i) {
+        for(int j = 0; j < cols; ++j)
             fscanf(pf, "%f", a[i] + j);
     }
 
@@ -419,10 +449,12 @@ int main() {
 
     /* srand(1020); */
 
-    int n     = 242;
-    float **A = array2D(n,n);
 
-    readmatrix(n,n,A,"matrix.txt");
+    /* int n     = 242; */
+    /* float **A = array2D(n,n); */
+    /* readmatrix(n,n,A,"matrix.txt"); */
+
+    /* printf("%f ", sum(A,n,n)); */
     /* modularity_louvain_und(n, A, 1.0, 0); */
     /* float *k    = sum_alog_axis(A,n,n,0); */
     /* for(int r=0;r<n;r++) { printf("%f,", k[r]); } */
@@ -430,12 +462,132 @@ int main() {
 
     /* for(int i=0;i<n;i++) { */
     /*     for(int j=0;j<n;j++) { */
-    /*         printf("%d ", (int)A[i][j]); */
+    /*         printf("%f ", A[i][j]); */
+    /*     } */
+    /* } */
+    
+    int n     = 50;
+    float **A = array2D(n,n);
+    for(int i=0;i<n;i++) {
+        for(int j=0;j<n;j++){
+            if(i==j) {
+                A[i][j]=1;
+            }
+            else {
+                A[i][j]=(float)(i+1)*(float)(j+1)/(float)(n*n);
+                /* printf("%f",(float)(i+1)*(j+1)/(n*n)); */
+            }
+        }
+    }
+    /* printf("\n"); */
+    /* printf("\n"); */
+    /* for(int i=0;i<n;i++){ */
+    /* for(int j=0;j<n;j++){ */
+    /* printf("%f",A[i][j]); */
+    /* } */
+    /* printf("\n"); */
+    /* } */
+    float m[50] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16,
+       17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 29, 32, 32,
+       32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 32}; 
+    int h=1;
+
+    float *ci_old = range(n);
+    float *ci     = array(n);
+    for(int i=0;i<n;i++) {
+        for(int j=0;j<n;j++) {
+            if(ci_old[j]==i) {
+                ci[j]=m[i];
+            }
+        }
+    }
+
+    float *indexes = where(m,50,5);
+
+    /* for(int i=0; i<n; i++) { */
+    /*     printf("%d,", (int)indexes[i]); */
+    /* } */
+
+
+    /* float *i_i = array(n); */
+    /* float *i_j = array(n);//where(m,50,5); */
+
+    /* int idx_1=0; */
+    /* int idx_2=10; */
+    /* i_i = where(m,n,idx_1+1); */
+    /* i_j = where(m,n,idx_2+1); */
+    /* for(int i=0; i<n; i++) { */
+    /*     printf("%d,", (int)i_i[i]); */
+    /* } */
+    /* printf("\n"); */
+    /* printf("\n"); */
+    /* for(int i=0; i<n; i++) { */
+    /*     printf("%d,", (int)i_j[i]); */
+    /* } */
+    /* float wp=0; */
+    /* for(int i=0;i<n;i++) { */
+    /*     for(int j=0;j<n;j++) { */
+    /*         if((int)i_i[i]==1 && (int)i_j[j]==1) {  */
+    /*             wp+=A[i][j];  */
+    /*         } */
     /*     } */
     /* } */
 
+
+    /* printf("%f ", compute_wp(A,m,n,1,11)); */
+
+    /* printf("\n"); */
+    /* printf("\n"); */
+    /* printf("%f", wp); */
+    /* printf("\n"); */
+    /* printf("\n"); */
+    /* printf("%f", A[1][5]); */
+
+    /* float **A1 = array2D(n,n); */
+    /* float wp = 0; */
+    /* for(int i=0;i<n;i++) { */
+    /*     for(int j=i;j<n;j++) { */
+    /*         i_i = where(m,n,i); */
+    /*         i_j = where(m,n,j); */
+    /*         wp = 0; */
+    /*         for(int r=0;r<n;r++) { */
+    /*             for(int c=0;c<n;c++) { */
+    /*                 if(i_i[r]==1 && i_j[c]==1) { wp+=A[r][c]; } */
+    /*             } */
+    /*         } */
+    /*         printf("%f\n", wp); */
+    /*         // Pool weights of nodes in same module */
+    /*         [> for(int r=0;r<n;r++) { if(m[r]==i && m[r]==j){ wp+=A[i][j]; } } <] */
+    /*         [> printf("%f,",wp); <] */
+    /*         A1[i][j] = wp; */
+    /*         A1[j][i] = wp; */
+    /*     } */
+    /* } */
+
+    /* for(int i=0;i<n;i++) { */
+    /*     for(int j=0;j<n;j++) { */
+    /*         printf("%f,", A1[i][j]); */
+    /*     } */
+    /*     printf("\n"); */
+    /* } */
+    /* for(int i=0; i<n; i++) {printf("%f,", ci_old[i]);} */
+    /* printf("\n"); */
+    /* printf("\n"); */
+    /* for(int i=0; i<n; i++) {printf("%f,", ci[i]);} */
+
+    float q = modularity_louvain_und(n,A,1,100);
+    printf("\n");
+    printf("q = %f", q);
+    printf("\n");
+    /* for(int i=0;i<100;i++) { */
+    /*     float q = modularity_louvain_und(n,A,1.0,i*10); */
+    /*     printf("\n"); */
+    /*     printf("q = %f", q); */
+    /*     printf("\n"); */
+    /* } */
+
     /* printf("%f ", trace(A,n)); */
-    printf("%f ", modularity_louvain_und(n, A, 1.0, 10));
+    /* printf("%f ", modularity_louvain_und(n, A, 1.0, 10)); */
 
     //float *a = array(7);
     /* float a[8] = {1,1,2,5,5,3,3,6}; */
@@ -553,16 +705,6 @@ int main() {
     /* printf("\n"); */
     /* printf("\n"); */
 
-    /* for(int i=0;i<5;i++) { */
-    /*     for(int j=0;j<5;j++){ */
-    /*         if(i==j) { */
-    /*             A[i][j]=1; */
-    /*         } */
-    /*         else { */
-    /*             A[i][j]=(i+1)*(j+1); */
-    /*         } */
-    /*     } */
-    /* } */
 
     /* float **Acp = array2D(5,5); */
     /* copy2D(Acp,A,5,5); */
