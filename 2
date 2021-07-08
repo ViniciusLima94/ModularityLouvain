@@ -337,7 +337,7 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
     int   flag,it,ii,ma,j;
 
     while(1) {
-        /* printf("q = %f\n", q); */
+        printf("q = %f\n", q);
         if(h>300) { printf("Entered an Infite Loop (E) - Aborted"); break; }
         // Nodes' degree
         k    = sum_alog_axis(A,n_nodes,n_nodes,0);
@@ -389,10 +389,10 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         }
         // New module assignments
         m = add_to_array( unique_reverse(m,n_nodes), n_nodes, 1 );
-        /* printf("m = "); */
-        /* for(int i=0;i<n_nodes;i++) { */
-        /*     printf("%f", m[i]); */
-        /* } */
+        printf("m = ");
+        for(int i=0;i<n_nodes;i++) {
+            printf("%f", m[i]);
+        }
         /* m = add_to_array(m,n_nodes,1); */
         h++;
         /* ci_old = array(n_nodes); copy(ci_old,ci,n_nodes); */
@@ -413,12 +413,11 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
                 // Pool weights of nodes in same module
                 /* for(int r=0;r<n_nodes;r++) { if(m[r]==i && m[r]==j){ wp+=A[i][j]; } } */
                 wp = compute_wp(A,m,n_nodes,i+1,j+1);
-                printf("i=%d, j=%d, wp=%f\n",i,j,wp);
                 A1[i][j] = wp;
                 A1[j][i] = wp;
             }
         }
-        copy2D(A,A1,n_nodes,n_nodes);
+        /* copy2D(A,A1,n_nodes,n_nodes); */
         /* for(int i=0; i<n_nodes; i++) { */
         /*         printf("%f\n", A1[i][i]); */
         /* } */
@@ -427,7 +426,7 @@ float modularity_louvain_und(int n_nodes, float (**A), float gamma, int seed) {
         q_old   = q;
         aux     = const_to_array2D(A,n_nodes,1.0/w_e);
         q       = trace(A,n_nodes)/w_e - gamma*sum(multiply(aux,aux,n_nodes),n_nodes,n_nodes);
-        /* printf("trace = %f\n", trace(A,n_nodes)); */
+        printf("trace = %f\n", trace(A,n_nodes));
         if(q-q_old<1e-10) {
             break;
         }
