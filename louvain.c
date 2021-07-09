@@ -10,13 +10,23 @@ float *array(int n) {
     return (float*) calloc(n, sizeof(float));
 }
 
-float **array2D(int n_rows, int n_cols) {
+float **array2D(int n_rows,int n_cols) {
     int k = 0;
     float **matrix = malloc(n_rows * sizeof (float *));
 
     matrix[0] = malloc(n_cols * n_rows * sizeof (float) );
     for (k=1; k < n_rows; k++) {
         matrix[k] = matrix[0] + n_cols*k;
+    }
+    return matrix;
+}
+
+float **zeros(int n_rows,int n_cols) {
+    float **matrix = array2D(n_rows,n_cols);
+    for(int i=0;i<n_rows;i++) {
+        for(int j=0;j<n_cols;n++) {
+            matrix[i][j]=0;
+        }
     }
     return matrix;
 }
